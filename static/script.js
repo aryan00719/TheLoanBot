@@ -242,7 +242,7 @@ function addDownloadButton(loanDetails) {
         e.target.disabled = true;
 
         try {
-            const res = await fetch("/generate_sanction_letter", {
+            const res = await fetch("/generate_custom_pdf", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -252,7 +252,20 @@ function addDownloadButton(loanDetails) {
                 })
             });
 
-            if (!res.ok) throw new Error('PDF generation failed');
+            // Check content type before proceeding
+            const contentType = res.headers.get("Content-Type") || "";
+            if (!res.ok || !contentType.includes("application/pdf")) {
+                let errorText = "";
+                try {
+                    errorText = await res.text();
+                } catch (e) {
+                    errorText = "(Could not retrieve error details)";
+                }
+                console.error("PDF Download Error:", errorText || res.statusText);
+                e.target.textContent = "Failed to generate";
+                e.target.style.background = "#ef4444";
+                return;
+            }
 
             // Trigger browser download
             const blob = await res.blob();
@@ -260,7 +273,7 @@ function addDownloadButton(loanDetails) {
             const a = document.createElement('a');
             a.style.display = 'none';
             a.href = url;
-            a.download = 'Sanction_Letter.pdf';
+            a.download = 'Loan_Application_Letter.pdf';
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
