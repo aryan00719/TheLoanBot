@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Loan Assistant</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Simple style for the language selector */
+        #language-selector {
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            background-color: #334155;
+            /* bg-gray-700 */
+            color: white;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            border: 1px solid #475569;
+            /* bg-gray-600 */
+            cursor: pointer;
+        }
+
+        #language-selector:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f6;
+            /* ring-blue-500 */
+        }
+    </style>
+</head>
+
+<body class="bg-gray-900 text-white font-sans">
+
+    <select id="language-selector">
+        <option value="en">English</option>
+        <option value="es">Español</option>
+        <option value="hi">हिन्दी</option>
+    </select>
+
+    <div class="flex flex-col items-center justify-center h-screen text-center">
+        <h1 class="text-5xl font-extrabold mb-6" data-i18n-key="welcome">Welcome to Loan Assistant</h1>
+        <p class="text-gray-400 mb-8" data-i18n-key="loginPrompt">Login to start chatting with your AI assistant</p>
+
+        <form id="login-form" class="bg-gray-800 p-8 rounded-lg shadow-lg w-96 space-y-4">
+            <div>
+                <input type="email" id="email" placeholder="Email" data-i18n-key="emailPlaceholder"
+                    class="w-full p-3 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required>
+            </div>
+            <div>
+                <input type="password" id="password" placeholder="Password" data-i18n-key="passwordPlaceholder"
+                    class="w-full p-3 rounded bg-gray-700 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required>
+            </div>
+            <button type="submit" data-i18n-key="loginButton"
+                class="w-full bg-blue-600 hover:bg-blue-700 py-3 rounded-lg font-semibold">Login</button>
+            <p id="error" class="text-red-500 hidden text-sm" data-i18n-key="errorMsg">Invalid credentials.</p>
+        </form>
+    </div>
+
+    <script>
+        // --- START: Internationalization (i18n) Logic ---
+
+        const translations = {
+            "en": {
+                "title": "AI Loan Assistant",
+                "welcome": "Welcome to Loan Assistant",
+                "loginPrompt": "Login to start chatting with your AI assistant",
+                "emailPlaceholder": "Email",
+                "passwordPlaceholder": "Password",
+                "loginButton": "Login",
+                "errorMsg": "Invalid credentials."
+            },
+            "es": {
+                "title": "Asistente de Préstamos IA",
+                "welcome": "Bienvenido al Asistente de Préstamos",
+                "loginPrompt": "Inicia sesión para chatear con tu asistente de IA",
+                "emailPlaceholder": "Correo electrónico",
+                "passwordPlaceholder": "Contraseña",
+                "loginButton": "Iniciar sesión",
+                "errorMsg": "Credenciales no válidas."
+            },
+            "hi": {
+                "title": "एआई ऋण सहायक",
+                "welcome": "ऋण सहायक में आपका स्वागत है",
+                "loginPrompt": "अपने एआई सहायक के साथ चैट करने के लिए लॉगिन करें",
+                "emailPlaceholder": "ईमेल",
+                "passwordPlaceholder": "पासवर्ड",
+                "loginButton": "लॉग इन करें",
+                "errorMsg": "अमान्य क्रेडेंशियल।"
+            }
+        };
+
+        const languageSelector = document.getElementById("language-selector");
+
+        function updateLanguage(lang) {
+            // Save the choice
+            localStorage.setItem('selectedLang', lang);
+            languageSelector.value = lang; // Sync dropdown
+
+            const langStrings = translations[lang];
+
+            // Update page title
+            document.title = langStrings.title;
+
+            // Update all elements with a data-key
+            document.querySelectorAll('[data-i18n-key]').forEach(element => {
+                const key = element.getAttribute('data-i18n-key');
+                if (langStrings[key]) {
+                    if (element.placeholder !== undefined) {
+                        element.placeholder = langStrings[key];
+                    } else {
+                        element.innerText = langStrings[key];
+                    }
+                }
+            });
+        }
+
+        languageSelector.addEventListener("change", (e) => {
+            updateLanguage(e.target.value);
+        });
+
+        // On page load, check for saved language
+        document.addEventListener("DOMContentLoaded", () => {
+            const savedLang = localStorage.getItem('selectedLang') || 'en';
+            updateLanguage(savedLang);
+        });
+
+        // --- END: i18n Logic ---
+
+
+        // --- Your existing login form logic ---
+        document.getElementById("login-form").addEventListener("submit", e => {
+            e.preventDefault();
+            const email = document.getElementById("email").value.trim();
+            const pass = document.getElementById("password").value.trim();
+            const error = document.getElementById("error");
+            if (email === "demo@test.com" && pass === "password123") {
+                window.location.href = "/chat";
+            } else {
+                error.classList.remove("hidden");
+            }
+        });
+    </script>
+</body>
+
+</html>
