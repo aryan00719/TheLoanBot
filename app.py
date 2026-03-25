@@ -43,7 +43,7 @@ def ask():
     is_voice = data.get('is_voice', False)
     
     history = data.get('history', [
-        {"role": "system", "content": "You are a helpful assistant."} # Basic fallback
+        {"role": "system", "content": "You are a helpful and knowledgeable loan assistant for TheLoanBot, an AI-powered financial services platform. Your role is to provide comprehensive loan advice, answer questions about different loan types, explain loan processes, and help users understand their options.\n\nKey capabilities:\n- Explain various loan types (personal, home, car, education, business loans, etc.)\n- Provide information about interest rates, eligibility criteria, and required documents\n- Help users calculate loan EMIs and understand repayment schedules\n- Answer questions about credit scores and how to improve them\n- Guide users through the loan application process\n- Offer financial tips and advice related to loans and borrowing\n\nWhen a user specifically requests a sanction letter:\n- Ask for the required details: full name, complete address, city, loan amount (in numbers), interest rate (as percentage), and loan type\n- Collect all information through natural conversation\n- Once you have all details, respond with 'GENERATE_PDF:' followed by a JSON object like: {'name': 'John Doe', 'address': '123 Main St', 'city': 'Anytown', 'amount': '50000', 'interest_rate': '10', 'loan_type': 'Personal Loan'}\n- Do not generate the PDF yourself; just provide the JSON for the system to process\n\nAlways be friendly, professional, and helpful. If you don't have specific information, suggest consulting with financial advisors. Keep responses conversational and engaging."}
     ])
     
     history.append({"role": "user", "content": query})
@@ -100,10 +100,12 @@ def verify_kyc():
 def generate_sanction_letter():
     data = request.json
     name = data.get('name', 'Valued Customer')
+    address = data.get('address', 'Not Provided')
+    city = data.get('city', 'Not Provided')
     # Remove any stray '₹' from the input, just in case
-    amount = str(data.get('amount', 'N/A')).replace("₹", "").replace(",", "").strip()
-    interest_rate = str(data.get('interest_rate', 'N/A')).replace("%", "").strip()
-    loan_type = data.get('loan_type', 'Education Loan')
+    amount = str(data.get('amount', '50000')).replace("₹", "").replace(",", "").strip()
+    interest_rate = str(data.get('interest_rate', '10')).replace("%", "").strip()
+    loan_type = data.get('loan_type', 'Personal Loan')
 
     try:
         pdf = FPDF()
@@ -121,8 +123,8 @@ def generate_sanction_letter():
         pdf.set_font("Helvetica", 'B', 11)
         pdf.cell(0, 6, f"{name}", ln=True)
         pdf.set_font("Helvetica", size=11)
-        pdf.cell(0, 6, "Address: ___________________________", ln=True)
-        pdf.cell(0, 6, "City: ___________________________", ln=True)
+        pdf.cell(0, 6, f"Address: {address}", ln=True)
+        pdf.cell(0, 6, f"City: {city}", ln=True)
         pdf.ln(10)
 
         # --- SUBJECT & REF ---
@@ -145,7 +147,7 @@ def generate_sanction_letter():
         # --- TERMS LIST ---
         def bullet(text):
             pdf.cell(5)
-            pdf.multi_cell(0, 6, f"• {text}")
+            pdf.multi_cell(0, 6, f"- {text}")
 
         # --- UNICODE FIX HERE ---
         bullet(f"Loan Amount: INR {amount}")
@@ -177,7 +179,7 @@ def generate_sanction_letter():
         pdf.cell(0, 5, "Tel: +91-123-456-7890 | Email: support@shivaayai.com", ln=True, align='C')
 
         # --- PDF BYTES STREAM ---
-        pdf_bytes = pdf.output(dest='S')
+        pdf_bytes = pdf.output(dest='S').encode('latin1')
         buffer = io.BytesIO(pdf_bytes)
         buffer.seek(0)
 
@@ -261,4 +263,4 @@ def generate_custom_pdf():
 # MAIN
 # =========================
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5050)

@@ -3,29 +3,10 @@ let isTtsEnabled = true; // Text-to-Speech toggle
 const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 let recognition;
 
-// --- UPDATED: System Prompt with new KYC Step ---
 let chatHistory = [
     {
         "role": "system",
-        "content": `You are Shivaay, a world-class Conversational Loan Sales Assistant. 
-Your goal is to simulate a human-like sales discussion, validate eligibility, and guide the user towards a loan sanction.
-
-Follow this exact flow:
-1.  **Engage:** Start with a friendly, natural dialogue.
-2.  **Evaluate:** Ask for key details (e.g., income, employment type).
-3.  **Credit Check Offer:** Once you have basic details, you MUST offer to run a 'mock credit evaluation'. Your response MUST end with a question (e.g., "Should I run that for you?"). You MUST NOT send any action command yet.
-4.  **User Consent (Credit):** The user will say "yes" or give consent.
-5.  **Credit Check Trigger:** Your *next* response MUST be "Okay, running that check now..." and you MUST append the hidden command: \`[ACTION:GET_SCORE]\`
-6.  **Validate:** The system will provide a mock score. You will receive this score as a new message. Based on this, validate their eligibility and state the (mock) terms.
-7.  **KYC Offer (NEW STEP):** After stating the terms, you MUST *offer* to perform a mock KYC check. Your response MUST end with a question (e.g., "Next, I need to run a mock KYC check using your (simulated) Aadhaar and PAN. Shall I proceed?").
-8.  **User Consent (KYC):** The user will say "yes" or give consent.
-9.  **KYC Trigger (NEW STEP):** Your *next* response MUST be "Great, verifying your (mock) KYC details..." and you MUST append the hidden command: \`[ACTION:VERIFY_KYC]\`
-10. **KYC Validation:** The system will provide a success message. You will receive this as a new message.
-11. **Sanction Offer:** NOW that credit and KYC are done, you MUST *offer* to generate the sanction letter. Your response MUST end with a question (e.g., "Would you like me to generate that letter?").
-12. **User Consent (Sanction):** The user will say "yes".
-13. **Sanction Trigger:** Your *next* response MUST be "Generating that for you..." and you MUST append the hidden command: \`[ACTION:OFFER_SANCTION|{"name": "Valued Customer", "amount": "1000000", "interest_rate": "8.5"}]\` (Replace JSON with details).
-    
-Use emotion-based persuasion. Do NOT use markdown. Respond in clean, natural paragraphs.`
+        "content": "You are a helpful loan assistant for TheLoanBot. When a user requests a sanction letter, ask for the required details: name, address, city, loan amount, interest rate, and loan type. Collect all the information from the conversation. Once you have all the details, respond with 'GENERATE_PDF:' followed by a JSON object containing the collected data, like {'name': 'John Doe', 'address': '123 Main St', 'city': 'Anytown', 'amount': '50000', 'interest_rate': '10', 'loan_type': 'Personal Loan'}. Do not generate the PDF yourself; just provide the JSON."
     }
 ];
 
@@ -98,38 +79,26 @@ window.sendQuery = async function () {
         // Update the global chat history
         chatHistory = data.history;
 
-        // --- UPDATED: Check for AI Actions ---
-        if (data.response.includes("[ACTION:GET_SCORE]")) {
-            const cleanText = data.response.replace("[ACTION:GET_SCORE]", "").trim();
-            addMessage(cleanText, "assistant");
-            // The AI has requested a score. Call the function to get it.
-            setTimeout(triggerMockScore, 500); // Small delay
-
-        } else if (data.response.includes("[ACTION:VERIFY_KYC]")) { // --- NEW: Handle KYC Action ---
-            const cleanText = data.response.replace("[ACTION:VERIFY_KYC]", "").trim();
-            addMessage(cleanText, "assistant");
-            // The AI has requested KYC. Call the function to run it.
-            setTimeout(triggerKycCheck, 500); // Small delay
-
-        } else if (data.response.includes("[ACTION:OFFER_SANCTION")) {
-            const commandMatch = data.response.match(/\[ACTION:OFFER_SANCTION\|(.*?)]/);
-            if (commandMatch && commandMatch[1]) {
-                const loanDetails = JSON.parse(commandMatch[1]);
-                const cleanText = data.response.replace(commandMatch[0], "").trim();
-
-                showTypingIndicator(false);
+        // --- Check for GENERATE_PDF anywhere in the response ---
+        const pdfMatch = data.response.match(/GENERATE_PDF:\s*(\{[\s\S]*?\})/);
+        if (pdfMatch && pdfMatch[1]) {
+            const jsonStr = pdfMatch[1].trim();
+            try {
+                const pdfData = JSON.parse(jsonStr);
+                // Show the chat message without the JSON part
+                const cleanText = data.response.replace(pdfMatch[0], "").trim();
                 addMessage(cleanText, "assistant");
-                addDownloadButton(loanDetails);
-            } else {
-                showTypingIndicator(false);
-                addMessage(data.response.replace(/\[ACTION:.*?\]/g, ""), "assistant");
+                addMessage("Generating your sanction letter...", "assistant");
+                generateAndDownloadPDF(pdfData);
+            } catch (e) {
+                console.error("Error parsing PDF data:", e);
+                addMessage(data.response, "assistant");
+                addMessage("Sorry, there was an error generating the PDF.", "assistant");
             }
-
         } else {
             // Normal AI response
-            showTypingIndicator(false);
             addMessage(data.response, "assistant");
-            // --- NEW: Play voice reply if available ---
+            // --- Play voice reply if available ---
             if (data.audio) {
                 const audio = new Audio(data.audio);
                 audio.play();
@@ -420,8 +389,57 @@ function formatAssistantMessage(text) {
     return formattedText;
 }
 
+// --- Generates and downloads the sanction letter PDF ---
+async function generateAndDownloadPDF(pdfData) {
+    try {
+        const res = await fetch("/generate_sanction_letter", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(pdfData)
+        });
+
+        if (!res.ok) {
+            throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = 'Sanction_Letter.pdf';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+    } catch (error) {
+        console.error("Error generating PDF:", error);
+        addMessage("Sorry, there was an error generating the sanction letter.", "assistant");
+    }
+}
+
+// --- Select prompt from quick options ---
+window.selectPrompt = function (promptKey) {
+    const promptTexts = {
+        "prompt1": "What types of loans do you offer?",
+        "prompt2": "Am I eligible for a personal loan?",
+        "prompt3": "What is the interest rate?"
+    };
+    const text = promptTexts[promptKey] || promptKey;
+    const input = document.getElementById("query");
+    input.value = text;
+    window.sendQuery();
+}
+
 // --- NEW: Event Listeners for Voice Buttons ---
 document.addEventListener('DOMContentLoaded', () => {
+    // Send button
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) {
+        sendBtn.addEventListener('click', sendQuery);
+    }
+
     // Speaker/Mute Button
     const speakerBtn = document.getElementById('speaker-btn');
     const speakerIcon = document.getElementById('speaker-icon');

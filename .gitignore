@@ -1,1 +1,3 @@
 venv/
+*.pdf
+static/voice_reply_*.mp3
